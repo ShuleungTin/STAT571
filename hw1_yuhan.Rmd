@@ -139,7 +139,7 @@ wsci %>%  # to get the average number of ppl by gender
   summarise(deg = mean(Number))
 ```
 
-As can be seen from the graph below, we could not reach a conclusion that more males are in science related field vs `Non-S&E`. More degrees have been granted by Non-S&E regardless of gender. In addition, there is not strong advantages for males in S&E field as there is only a slight difference between the number of degrees.
+As can be seen from the graph below, we could not reach the conclusion that on average, more males are in science-related field vs `Non-S&E`. More degrees have been granted by `Non-S&E` fields,  regardless of gender. In addition, there appears to be no strong advantages for males in S&E fields, as there is only a slight difference in the number of degrees by gender.
 
 ```{r fig.height=4, fig.width=7, results="hold"}
 wsci %>%
@@ -156,7 +156,7 @@ fig.align = 'left'
 
 ```
 
-But it is also observed that the total amount of degrees granted to females is larger than that of males. So we are going to check the percentage of degrees granted by S&E vs non-S&E by gender.
+However, it is also observed that the total amount of degrees granted to females is larger than that of males. Thus, we will check the percentage of degrees granted by S&E vs non-S&E by gender.
 
 ```{r results="hold"}
 wsci %>%
@@ -171,15 +171,15 @@ wsci %>%
   ggtitle("Degrees granted by S&E vs non-S&E by gender in percentage")+
   theme(plot.title = element_text(hjust = 0.5))
 ```
-It is quite obvious that males are granted with proportionally more degrees by S&E than females, even though the total number of degrees does not show great difference.
+It is now quite obvious that males are proportionally granted more degrees by S&E than females, even though the total number of degrees does not show great difference.
 
 ### In 2015
 
 Describe the number of people by type of degree, field, and gender. Do you see any evidence of gender effects over types of degree? Again, provide graphs to summarize your findings.
 
-According to the graph, females show relatively advantage in Non-S&E, Psychology, Social science and Biological science field.
-To make it clear, we eliminate the degree in Non-S&E.Except for Engineering, males do not assume a dominant position in science field.
-In the stereotype, many people think that men have a stronger willingness to pursue further academic studies, such as master's degree or doctor's degree. However, according to the analysis results, the number of women studying for bachelor's degree, master's degree and doctoral degree is much higher than that of men. This is the exact opposite of our stereotypes.
+According to the graph, females seem to have a relative advantage in Non-S&E, Psychology, Social science and Biological science fields.
+To make it clear, we eliminate the degree in Non-S&E. Except for Engineering, males do not assume a dominant position in science fields.
+It is stereotipically thought that men have a stronger willingness to pursue further academic studies, such as master's or doctoral degrees. However, according to the analysis results, the number of women studying for bachelor's degrees, master's degrees and doctoral degrees is much higher than that of men. This is the exact opposite of what is predicated stereotipically.
 ```{r results="hold"}
 wsci %>%
   filter(Year == 2015) %>%
@@ -218,7 +218,7 @@ wsci %>%
 
 In this last portion of the EDA, we ask you to provide evidence graphically: Do the number of  degrees change by gender, field, and time? 
 
-First, we take a look at the female proportion in SE/non-SE across year. The female proportion in SE across year= is decreasing while the proportion in non-SE is increasing across year.
+First, we take a look at the female proportion in SE/non-SE across time (years). The female proportion in SE appears to decrease over time, while their proportion in non-SE trends upwards.
 ```{r fig.height=3, fig.width=5, results="hold"}
 wsci %>%
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
@@ -232,7 +232,7 @@ wsci %>%
   ggtitle("Female proportion in SE/non-SE across year")
 ```
 
-it is proved that there is an increasing trend in degrees regardless of sex, degree and SE. 
+MOreover, the following graph conclusively revealsan increasing trend in degrees awarded regardless of sex, degree or SE categories. 
 
 ```{r echo=FALSE,results="hold"}
 wsci %>%
@@ -246,7 +246,7 @@ wsci %>%
 
 ```
 
-Since the total number of PHD degrees is relatively small, in order to illustrate the above conclusion more clearly, we will list the PhD degrees separately in the chart below.
+Since the total number of PhD degrees is relatively small, in order to illustrate the above conclusion more clearly, we will list the PhD degrees separately in the chart below.
 
 ```{r echo=FALSE, fig.height=6, fig.width=10, results="hold"}
 wsci %>%
@@ -260,7 +260,7 @@ wsci %>%
   ggtitle("PhD granted by sex and SE")
 ```
 
-The degrees granted proption by sex across degree and SE is almost unchanged.
+The degrees-granted proportion by sex across degree and SE is almost unchanged.
 
 ```{r echo=FALSE}
 wsci %>%
@@ -279,7 +279,7 @@ wsci %>%
 Finally, is there evidence showing that women are underrepresented in data science? Data science is an interdisciplinary field of computer science, math, and statistics. You may include year and/or degree.
 
 
-From the following chart, the number of women in the field of computer science is increasing year by year. More and more women are entering into the field of computer science which shows that women are underrepresented in data science.
+From the following chart, one cn observe that the number of women in the field of computer science is increasing over time. Even though more and more women are entering the field of computer science, the visualization below reveals that women are still underrepresented in data science fields.
 
 ```{r results="hold"}
 wsci %>%
@@ -295,8 +295,8 @@ wsci %>%
 
 Summarize your findings focusing on answering the questions regarding if we see consistent patterns that more males pursue science-related fields. Any concerns with the data set? How could we improve on the study?
 
-From the total number of degrees, whether gender or field, there is a growing trend in the time series. Especially in the field of data science, the growth is very significant. At the same time, women's participation in science is higher than our expectations, and there is no obvious disadvantage compared with men.
-However, in this analysis, we did not detrend the data, that is, we could not determine the source of the increase in the number of degrees. At the same time, the analysis based on the absolute value makes it easy to overlook the difference of sample size.
+Regarding the total number of degrees, independently of gender or field, there is clear upward trend in our time series. Especially in the fields of data science, the growth is very significant. At the same time, women's participation in science is higher than our expectations, and there is no obvious disadvantage that can be deduced from the data when compared with men.
+However, in this analysis, we did not detrend the data. That is, we could not determine the source of the increase in the number of degrees. At the same time, analyses based on absolute values make it easy to overlook the relevance of differences in sample size.
 
 ```{r echo=FALSE, fig.height=15, results="hold"}
 wsci %>%
