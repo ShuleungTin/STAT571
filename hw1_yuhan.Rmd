@@ -218,7 +218,7 @@ wsci %>%
 
 In this last portion of the EDA, we ask you to provide evidence graphically: Do the number of  degrees change by gender, field, and time? 
 
-First, we take a look at the female proportion in SE/non-SE across year. The female proportSE across year in SE is decreasing while the proportion in non-SE is increasing across year.
+First, we take a look at the female proportion in SE/non-SE across year. The female proportion in SE across year= is decreasing while the proportion in non-SE is increasing across year.
 ```{r fig.height=3, fig.width=5, results="hold"}
 wsci %>%
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
@@ -270,7 +270,7 @@ wsci %>%
   ggplot(aes(x = Year, y = SE_number, fill = Sex)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_grid(SE~Degree, scales = "free_y") +
-  ggtitle("Degrees granted proption by sex across degree and SE")
+  ggtitle("Degrees granted proportion by sex across degree and SE")
 ```
 
 
@@ -287,7 +287,7 @@ wsci %>%
   ggplot(aes(x = Year, y = Number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_grid(Field~Degree, scales = "free_y") +
-  ggtitle("Degrees granted proption by sex across degree and SE")
+  ggtitle("Degrees granted proportion by sex in data science across degree and time")
 ```
 
 
@@ -303,7 +303,7 @@ wsci %>%
   ggplot(aes(x = Year, y = Number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_grid(Field~Degree, scales = "free_y") +
-  ggtitle("Degrees granted proption by sex across degree and SE")
+  ggtitle("Degrees granted proportion by sex across degree and time")
 
 ```
 
