@@ -105,7 +105,7 @@ To help out, we have included some codes here as references. You should make thi
 ```{r data wrangling, warning=FALSE, include=FALSE}
 # For the demonstration purpose, we show this R-chunk by taking echo=TRUE
 # In your final report you should hide all the R-chunks to keep your report flowing well.
-wsci <- read_excel("WomenData_06_16.xlsx")
+wsci <- read_excel("C:\\Users\\sunyuhan0731\\Downloads\\WomenData_06_16.xlsx")
 # str(wsci)
 
 # base R
@@ -134,16 +134,18 @@ Is there evidence that more males are in science related fields vs `Non-S&E`? Pr
 ```{r include=FALSE, results="hide"}
 library("ggplot2")
 wsci %>%  # to get the average number of ppl by gender
+  filter(Year == 2015 & Degree == "BS") %>%
   group_by(Field, Sex) %>%
   summarise(deg = mean(Number))
 ```
 
-As can be seen from the graph below, we could not reach a conclusion that more males are in science related field vs `Non-S&E`. More degrees have been granted by S&E regardless of gender. In addition, there is not strong advantages for males in S&E field as there is only a slight difference between the number of degrees.
+As can be seen from the graph below, we could not reach a conclusion that more males are in science related field vs `Non-S&E`. More degrees have been granted by Non-S&E regardless of gender. In addition, there is not strong advantages for males in S&E field as there is only a slight difference between the number of degrees.
 
 ```{r fig.height=4, fig.width=7, results="hold"}
 wsci %>%
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
   group_by(SE, Sex) %>%
+  filter(Year == 2015 & Degree == "BS") %>%
   summarise(SE_number = sum(Number)) %>%
   ggplot(aes(x = SE, y = SE_number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -175,7 +177,9 @@ It is quite obvious that males are granted with proportionally more degrees by S
 
 Describe the number of people by type of degree, field, and gender. Do you see any evidence of gender effects over types of degree? Again, provide graphs to summarize your findings.
 
-
+According to the graph, females show relatively advantage in Non-S&E, Psychology, Social science and Biological science field.
+To make it clear, we eliminate the degree in Non-S&E.Except for Engineering, males do not assume a dominant position in science field.
+In the stereotype, many people think that men have a stronger willingness to pursue further academic studies, such as master's degree or doctor's degree. However, according to the analysis results, the number of women studying for bachelor's degree, master's degree and doctoral degree is much higher than that of men. This is the exact opposite of our stereotypes.
 ```{r results="hold"}
 wsci %>%
   filter(Year == 2015) %>%
@@ -185,7 +189,8 @@ wsci %>%
   theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
   ggtitle("Degrees granted across fields by degree and gender") 
 ```
-According to the graph, females show relatively advantage in Non-S&E, Psychology, Social science and Biological science field. To make it clear, we eliminate the degree in Non-S&E.
+
+
 
 ```{r echo=TRUE, results="hold"}
 wsci %>%
@@ -194,27 +199,26 @@ wsci %>%
   geom_bar(stat = "identity", position = "dodge") +
   facet_grid(Degree~., scales = "free_y") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
-  ggtitle("Degrees granted across fields by degree and gender") 
+  ggtitle("Degrees granted in S&E by degree and gender") 
 ``` 
 ```{r results="hold"}
 wsci %>%
   filter(Year == 2015) %>%
   group_by(Degree, Sex) %>%
-  ggplot(aes(x = Degree, y = Number, fill = Sex)) +
+  summarise(Degree_number = sum(Number)) %>%
+  ggplot(aes(x = Degree, y = Degree_number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
-  ggtitle("Degrees granted across fields by degree and gender") 
+  ggtitle("Degrees granted across type of degree and gender") 
+``` 
 
-```
 
-Except for Engineering, males do not assume a dominant position in science field. In the stereotype, many people think that men have a stronger willingness to pursue further academic studies, such as master's degree or doctor's degree. However, according to the analysis results, the number of women studying for bachelor's degree, master's degree and doctoral degree is much higher than that of men. This is the exact opposite of our stereotypes.
 
 ### Time effects
 
 In this last portion of the EDA, we ask you to provide evidence graphically: Do the number of  degrees change by gender, field, and time? 
 
-First, we take a look at the female proportion in SE/non-SE across year. The female proportSE across year")
-```ion in SE is decreasing while the proportion in non-SE is increasing across year.
+First, we take a look at the female proportion in SE/non-SE across year. The female proportSE across year in SE is decreasing while the proportion in non-SE is increasing across year.
 ```{r fig.height=3, fig.width=5, results="hold"}
 wsci %>%
   mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
@@ -447,7 +451,7 @@ iii. Comment on how well the model assumptions are met for the sample you used.
 This part aims to help you understand the notion of sampling statistics and confidence intervals. Let's concentrate on estimating the slope only.  
 
 Generate 100 samples of size $n = 40$, and estimate the slope coefficient from each sample. We include some sample code below, which should guide you in setting up the simulation. Note: this code is easier to follow but suboptimal; see the appendix for a more optimal R-like way to run this simulation.
-```{r echo=TRUE}
+```{r eval=FALSE, include=FALSE}
 # Inializing variables. Note b_1, upper_ci, lower_ci are vectors
 x <- seq(0, 1, length = 40) 
 n_sim <- 100              # number of simulations
