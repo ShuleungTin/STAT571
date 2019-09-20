@@ -31,7 +31,7 @@ knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, readxl, magrittr, dplyr)
+pacman::p_load(ISLR, readxl, magrittr, dplyr, ggplot2)
 ```
 
 
@@ -538,6 +538,8 @@ As the F-test rejects the null, we confirm that `cylinders` is as a whole a stat
 
 The effect of `cylinders` has a different interpretation, as it is now discretely divided into 5 categories - note that the category `cylinders = 3` is absorbed in the intercept. For car belonging to a certain category except 3, their average `mpg` is expected to change by the category coefficient, with respect to a car in category 3a and controlling for all other variables in the model.
 
+Regarding to two anovas, `anova()` performs an F-test given a reduced model and a full moedl as inputs. It will only test the significance of the veriables cut from the reduced model together. In contrast, `Anova()` performs an F-test on every variable, effectively revealing if each variable is significant against a reduced model without said variable. In this case, `Anova()` turns out to be more convenient, as we do not need to define a reduced model to obtain our desired F-test. 
+
 Extra: Let's see if we can imporve the categorical `cylinders` model. We will get rid of the 3 and 5 cylinder categories and reproduce the model:
 ```{r}
 auto_data_clean <- auto_data %>% filter(cylinders %in% c(4, 6, 8))
@@ -548,7 +550,9 @@ As we can see, all of our model coefficients are now significant to very precise
 
 iii. What are the fundamental differences between treating `cylinders` as a continuous and categorical variable in your models? 
 
-When `cylinders` is treated as a continuous variable, it is explicitly taken as a numeric vector and OLS will output a coefficient for it that will represent the maginal change of the dependent given a one-unit change in `cylinders`. When `cylinders` is taken as categorical, we mean to say that any observation belongs to one category within `cylinders`, and would like to find out whan we can say about observations belonging to each category. The OLS process will first create n-1 dummy variables for n categories, the first one assuems as the base line case and incorporated in our intercept. The vectors of 0's and 1's are then taken as literal numeric vectors and a coefficient is obtained for all n-1 categories. Such a coefficient represents the change (note, with respect to the baseline category) expected on average in the independent given an observation belongs to a specific category. 
+When `cylinders` is treated as a continuous variable, it is explicitly taken as a numeric vector and OLS will output a coefficient for it that will represent the maginal change of the dependent given a one-unit change in `cylinders`. When `cylinders` is taken as categorical, we mean to say that any observation belongs to one category within `cylinders`, and would like to find out whan we can say about observations belonging to each category. The OLS process will first create n-1 dummy variables for n categories, the first one assumed as the base line case and incorporated in our intercept. The vectors of 0's and 1's are then taken as literal numeric vectors and a coefficient is obtained for all n-1 categories. Such a coefficient represents the change (note, with respect to the baseline category) expected on average in the dependent given an observation belongs to a specific category. 
+
+Fundamentally, the implied probability model is also distinct. If we treat `cylinders` as continuous, the probability model implies a linear relationship between the numerical value fo cylinders and the dependent. If `cylinders` is taken as categorical, the model implies observations in each category have a specific mean, which may be distinct from the others. 
 
 
 ### Results
@@ -561,9 +565,11 @@ Our final model regresses `mpg` with respect to `ln(horsepower)`, `year`, `weigh
 
 Below are the model output results:
 ```{r  echo= T, results= T}
-cars <- ISLR::Auto %>% filter(cylinders %in% c(4, 6, 8)) %>% mutate(ln_horsepower = log(horsepower), cyl_cat = cylinders >4)
+cars <- ISLR::Auto %>% 
+  filter(cylinders %in% c(4, 6, 8)) %>% 
+  mutate(ln_horsepower = log(horsepower), cyl_cat = cylinders >4)
 
-fit <- lm(mpg ~ ln_horsepower + year * weight + as.factor(cyl_cat), cars)
+fit <- lm(mpg ~ ln_horsepower + weight * year + as.factor(cyl_cat), cars)
 summary(fit)
   
 ```
@@ -594,7 +600,7 @@ ii. Summarize the effects found.
 
 The model coefficients estimate the marginal effects of our independent variables on the dependent `mpg`:
 
-- Horsepower: Our model establishes that the relationship between `horsepower` and `mpg` is not linear, but logarithmic. Using a first approximation for the logarithm, we can say that an increase of 1% in `horsepower` results in a decrease in average `mpg` of -4.37.
+- Horsepower: Our model establishes that the relationship between `horsepower` and `mpg` is not linear, but logarithmic. Using a first approximation for the logarithm, we can say that an increase of 1% in `horsepower` results in a decrease in average `mpg` of -4.37*0.01 = -0.0437.
 - Year: We take into account the simple effet and the interaction effect. According to our model, an increase of 1 unit in `year` results in a change in average `mpg` of 1.91 - 0.000443 * `weight`.
 - Weight: An increase of 1 unit in `weight` results in a change in average `mpg` of 0.0289 - 0.000443 * year.
 - Cylnders: According to our model, cars with more than 4 cylinders have an lower average `mpg` by -2.21 compared to cars with less or eqal to 4 cylinders.
