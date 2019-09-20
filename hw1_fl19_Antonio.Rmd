@@ -433,7 +433,7 @@ auto_data %>%
 
 ```
 
-Note that acceleration's relationship with `mpg` is weak, and it is correlated with `horsepower`quite significantly, so we might deide to exclude it from the model. The variable `cylinders` shows some peculiarities. Most observations have a `cylinders` value of 4, 6, or 8, so it may be better interpreted as a categorical variable. Finally, note that `year`is uncorrelated with `horsepower`, so including them both in the same model should not cause multicolinearity problems. 
+Note that acceleration's relationship with `mpg` is weak, and it is correlated with `horsepower`quite significantly, so we might deide to exclude it from the model. The variable `cylinders` shows some peculiarities. Most observations have a `cylinders` value of 4, 6, or 8, so it may be better interpreted as a categorical variable. Finally, note that `year` is uncorrelated with `horsepower`, so including them both in the same model should not cause multicolinearity problems. 
 
 Now, we have noticed that some of our variables seem to have a negative but somewhat non-linear relationship with `mpg`. One of such vaiables is `horsepower`. Thus, we will now explore applying a transformation to `horsepower` and check if the transformed variables displays a more linear relationship with `mpg`. Let us examine the scatterplot in more detail:
 
@@ -495,11 +495,11 @@ ii. Add `horsepower` on top of the variable `year` to your linear model. Is `yea
 fit1 <- lm(mpg ~ horsepower + year, auto_data)
 summary(fit1)
 ```
-After adding `horseower`, we confirm that year is still a significant predictor, with a very small p-value that remains far below 0.05. The coefficient of `year`has a different interpretation, as the "partial derivative" of `mpg` with respect to `year`. This means that an increase in `year`  by 1, controlling for `horsepower`, results in an increase of 0.65 in the average car `mpg`. 
+After adding `horseower`, we confirm that year is still a significant predictor, with a very small p-value that remains far below 0.05. The coefficient of `year` has a different interpretation, as the "partial derivative" of `mpg` with respect to `year`. This means that an increase in `year`  by 1, controlling for `horsepower`, results in an increase of 0.65 in the average car `mpg`. 
 
 iii. The two 95% CI's for the coefficient of year differ among (i) and (ii). How would you explain the difference to a non-statistician?
 
-The CI's for the `year` coefficients are different because fundamentally, these coeffient represent two different concepts. In the simple model, we are in a way assuming we know nothing else about `mpg` apart from its relation to year, and we are using the latter to explain all teh variation in the former. In the multivariate model, we take more information into account, specifically from a second variable `horsepower`, and so we explain variation in `year` using the two, such that the coefficent of `year` only represent the expected change in average `mpg` for a 1-unit increase in `year` but controlling for `horsepower`, that is, assuming no chnage in `horsepower`. This new extra asusmption fundamentally changes the meaning of the coeffient, and thus the model produces a different estimate and CI accordingly.
+The CI's for the `year` coefficients are different because fundamentally, these coeffient represent two different concepts. In the simple model, we are in a way assuming we know nothing else about `mpg` apart from its relation to year, and we are using the latter to explain all the variation in the former. In the multivariate model, we take more information into account, specifically from a second variable `horsepower`, and so we explain variation in `year` using the two, such that the coefficent of `year` only represent the expected change in average `mpg` for a 1-unit increase in `year` but controlling for `horsepower`, that is, assuming no chnage in `horsepower`. This new extra asusmption fundamentally changes the meaning of the coeffient, and thus the model produces a different estimate and CI accordingly.
 
 iv. Create a model with interaction by fitting `lm(mpg ~ year * horsepower)`. Is the interaction effect significant at .05 level? Explain the year effect (if any). 
 
@@ -594,14 +594,14 @@ fit_data %>%
   geom_histogram(binwidth = 1)+
   labs(title = "Residual Histogram")
 ```
-Although we understand this is may be a relevant issue, thsi fenomenon was present in almost every other model we tested. Thus, we settle for this model as one of the best performers on the visual normality tests.
+Although we understand this is may be a relevant issue, this fenomenon was present in almost every other model we tested. Thus, we settle for this model as one of the best performers on the visual normality tests.
 
 ii. Summarize the effects found.
 
 The model coefficients estimate the marginal effects of our independent variables on the dependent `mpg`:
 
 - Horsepower: Our model establishes that the relationship between `horsepower` and `mpg` is not linear, but logarithmic. Using a first approximation for the logarithm, we can say that an increase of 1% in `horsepower` results in a decrease in average `mpg` of -4.37*0.01 = -0.0437.
-- Year: We take into account the simple effet and the interaction effect. According to our model, an increase of 1 unit in `year` results in a change in average `mpg` of 1.91 - 0.000443 * `weight`.
+- Year: We take into account the simple effect and the interaction effect. According to our model, an increase of 1 unit in `year` results in a change in average `mpg` of 1.91 - 0.000443 * `weight`.
 - Weight: An increase of 1 unit in `weight` results in a change in average `mpg` of 0.0289 - 0.000443 * year.
 - Cylnders: According to our model, cars with more than 4 cylinders have an lower average `mpg` by -2.21 compared to cars with less or eqal to 4 cylinders.
 Note: All of these effects are marginal, and must be interpreted as controlling for all other variables in the model. TO avoid redundance, we decided not to specify this fact in the explanation of every effect. 
