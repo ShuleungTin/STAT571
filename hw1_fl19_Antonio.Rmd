@@ -433,7 +433,7 @@ auto_data %>%
 
 ```
 
-Note that acceleration's relationship with `mpg` is weak, and it is correlated with `horsepower`quite significantly, so we might deide to exclude it from the model. The variable `cylinders`show some peculiarities. Most observations have a `cylinders` value of 4, 6, or 8, so it may be better interpreted as a categorical variable. Finally, note that `year`is uncorrelated with `horsepower`, so including them both in the same model should not cause multicolinearity problems. 
+Note that acceleration's relationship with `mpg` is weak, and it is correlated with `horsepower`quite significantly, so we might deide to exclude it from the model. The variable `cylinders` shows some peculiarities. Most observations have a `cylinders` value of 4, 6, or 8, so it may be better interpreted as a categorical variable. Finally, note that `year`is uncorrelated with `horsepower`, so including them both in the same model should not cause multicolinearity problems. 
 
 Now, we have noticed that some of our variables seem to have a negative but somewhat non-linear relationship with `mpg`. One of such vaiables is `horsepower`. Thus, we will now explore applying a transformation to `horsepower` and check if the transformed variables displays a more linear relationship with `mpg`. Let us examine the scatterplot in more detail:
 
