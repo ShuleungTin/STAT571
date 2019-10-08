@@ -1,4 +1,3 @@
-
 ---
 title: "STAT 471/571/701 Modern Data Mining, HW 2"
 author:
@@ -31,8 +30,249 @@ knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, readxl, magrittr, ggrepel,dplyr, ggplot2,gridExtra,leaps,car,reshape2,gplots,glmnet) # add the packages needed
+pacman::p_load(ISLR, dplyr, ggplot2,  leaps, car, tidyverse, GGally, reshape2, glmnet, mapproj) # add the packages needed
 ```
+
+
+\pagebreak
+
+# Overview
+
+Multiple regression is one of the most popular methods used in statistics as well as in machine learning. We use linear models as a working model for its simplicity and interpretability. It is important that we use domain knowledge as much as we could to determine the form of the response as well as the function format for the factors. Then, when we have many possible features to be included in the working model it is inevitable that we need to choose a best possible model with a sensible criterion. `Cp`, `BIC` and regularizations are introduced. Be aware that if a model selection is done formally or informally, the inferences obtained with the final `lm()` fit may not be valid. Some asjustment will be needed. This last step is beyond the scope of this class. Check the current research line that Linda/Arun are working on. 
+
+## Objectives
+
+- Model building process
+
+- Methods
+    - Model selection
+        + All subsets
+        + Forward/Backward
+    - Regularization
+        + LASSO (L1 penalty)
+        + Ridge (L2 penalty)
+        + Elastic net
+- Understand the criteia 
+    - `Cp`
+    - Testing Errors
+    - `BIC` 
+    - `K fold Cross Validation`
+    - `LASSO` 
+- Packages
+    - `lm()`, `Anova`
+    - `regsubsets()`
+    - `glmnet()` & `cv.glmnet()`
+
+    
+
+##  Instructions
+
+- **Homework assignments can be done in a group consisting of up to three members**. 
+
+- **All work submitted should be completed in the R markdown format.** You can find a cheat sheet for R Markdown [here](https://github.com/rstudio/cheatsheets/raw/master/rmarkdown-2.0.pdf). For those who have never used it before, we urge you to start this homework as soon as possible. 
+
+- **Submit the following files, one submission for each group:**  (1) Rmd file, (2) a compiled PDF or HTML version, and (3) all necessary data files. You can directly edit this file to add your answers. If you intend to work on the problems separately within your group, compile your answers into one Rmd file before submitting. We encourage that you at least attempt each problem by yourself before working with your teammates. Additionally, ensure that you can 'knit' or compile your Rmd file. It is also likely that you need to configure Rstudio to properly convert files to PDF. [**These instructions**](http://kbroman.org/knitr_knutshell/pages/latex.html#converting-knitrlatex-to-pdf) should be helpful.
+
+- In general, be as concise as possible while giving a fully complete answer. All necessary datasets are available in the "Data" folder or this homework folder on Canvas. Make sure to document your code with comments so the teaching fellows can follow along. R Markdown is particularly useful because it follows a 'stream of consciousness' approach: as you write code in a code chunk, make sure to explain what you are doing outside of the chunk. 
+
+- A few good submissions will be used as sample solutions. When those are released, make sure to compare your answers and understand the solutions.
+
+
+# Review materials
+
+- Study both R-tutorials
+- Study lecture 3: Model selection
+- Study lecture 4: Regularization
+- Study lecture 2: Multiple regression
+
+
+
+Review the code and concepts covered during lectures: multiple regression, model selection and penalized regression through elastic net. 
+
+# Conceptual study
+In this question, you will generate data (from a linear model) and perform variable selection using $C_p$, BIC, adjusted $R^2$ and lasso. You will also see that the summary from `lm()` can be misleading after model selection (as hinted in the overview). See ISLR, page 262, problem 8 for reference.
+
+The following `r`-chunk generate data from a linear model with 10 features. 
+```{r, echo = T, eval = T}
+
+n <- 100 ## sample size n
+x <- rnorm(n)
+eps <- rnorm(n)
+xmat <- matrix(rep(x, 10), ncol = 10)
+for(i in 1:10){
+  xmat[,i] <- x^{i}
+}
+data <- data.frame(X = xmat, Y = eps)
+```
+`data` contains the response `Y` and feature matrix `X` (with 10 columns).
+
+EDA: We start by exploring the structure of our data, confirming our intuitions from the code.
+
+```{r results=T}
+head(data)
+```
+
+(a) What is the TRUE model? (Write the true model relating $Y$ to features in $X$).
+
+By construction, $Y$ is normally distributed and independent from the distribution of all $X_k$'s. The true linear model is given by 
+$$y_i = 0 + \sum_{k= 1}^{10} 0 \cdot x_{ki} + \epsilon_i, \ \epsilon_i \sim \mathcal{N}(0, 1) $$
+In essence, $Y$ has no linear relationship with respect to any $X_k$ and has mean of $0$.
+
+(b) Use the function `regsubsets()` to perform best subset selection in order to choose the best model. What is the best model obtained according to $C_p$, $BIC$ and adjusted $R^2$? Show some plots to provide evidence for your answer, and report the coefficients of the best model obtained.  
+
+We run `regsubsets` to obtain more information on how different models perform in terms of our criteria for model selection. 
+
+```{r results = T}
+fit.exh <- regsubsets(Y ~., data, nvmax = 25, method = "exhaustive")
+f.e <- summary(fit.exh)
+f.e
+```
+
+Now that we recorded `regsubsets`'s results, we proceed to plotting $C_p$, $BIC$, and adj. $R^2$ to select the best model. We are generally looking for $C_p,\ BIC$ as small as possible, and although we will observe adj. $R^2$ and hope for a large value, we realize its flaws for model selection and will avoid biasing our judgement towards this metric. 
+
+$C_p$
+
+```{r results=T}
+plot(f.e$cp, xlab="Number of predictors", 
+     ylab="Cp", col="red", type="p", pch=16)
+```
+
+We note that $C_p$ shows a moderate increasing pattern with respect to number of predictors. Although the minimum $C_p$ usually corresponds to the smallest model, $C_p$ shows some variability on the consistency of the upward trend. We now look for further confirmation from other Information Criteria. 
+
+$BIC$
+
+```{r results=T}
+plot(f.e$bic, xlab="Number of predictors", 
+     ylab="BIC", col="red", type="p", pch=16)
+```
+
+Our plot of $BIC$ exhibits a consistent increasing trend with respect to number of predictors. Again, the univariate model minimizes $BIC$, which reinforces our observations from before.  
+
+Adjusted $R^2$
+
+```{r results=T}
+plot(f.e$adjr2, xlab="Number of predictors", 
+     ylab="Adj. R^2", col="red", type="p", pch=16)
+```
+
+We find that adj. $R^2$ tends to attain its maximum at a mid-range number, but we notice that the improvement in absolute terms is not very significant. We favor the two previous criteria to inform our decision. 
+
+We have that both $C_p$ and $BIC$ strongly point towards the smallest model. Thus, we conclude that a univariate model is our best choice. From the summary of `regsubsets`, we know the best univariate model constists of only $X_1$. We proceed to fitting such model and reporting the summary.
+
+```{r results=T}
+fit_x1 <- lm(Y ~ X.1, data)
+summary(fit_x1)
+```
+
+(c) Describe as accurate as possible what $C_p$ and $BIC$ are estimating?
+
+Both $C_p$ and $BIC$ are estimators for the so-called Prediction of Testing Error (TE). That is, the expected MSE to be obtained from fitting the same model to out-of-sample observations. As this is a theoretical quantity, we rely on information criteria or a "testing dataset" (set of observations from same population but not included in model fitting) to estimate TE. 
+
+(d) Fit a lasso model to the simulated data. Use cross-validation to select the optimal value of $\lambda$. Create plots of the cross-validation error as a function of $\lambda$. Report the resulting coefficient estimates, and discuss the results obtained. 
+
+We start by preparing our data for LASSO. We then fit an initial LASSO regression with $\lambda = 100$ and report the coefficients:
+
+```{r echo = T, results=T}
+Y <- data[,1]
+X <- model.matrix(Y~., data)[,-1]
+
+#LASSO
+fit.lambda <- glmnet(X, Y, alpha=1, lambda = 100)
+coef(fit.lambda)
+```
+
+As can be observed, a LASSO fit with penalty $\lambda = 100$ essentially returns all variable coefficients as $0$. This is indeed consistent with the true model. Now, we will use K-fold cross-validation with $K = 10$ to obtain an estimate for the Testing Error-minimizing $\lambda$.
+
+```{r results = T}
+fit.cv <- cv.glmnet(X, Y, alpha = 1, nfolds = 10)
+plot(fit.cv)
+coef(fit.cv, s="lambda.min")
+```
+
+We note that teh CV algorithm picks an extremely small lambda if we's like to minimize Testing MSE, such that the penalty in the LASSO fit is almost null. Thus, the resulting model is similar to those obtained by selecting the best model of one variable in our previous model selections. Note though that the LASSO coefficients are biased, so we move on to fit an OLS regression with the selected LASSO variable and report the results.
+
+```{r, results=TRUE}
+coef.min <- coef(fit.cv, s="lambda.min")  #s=c("lambda.1se","lambda.min") or lambda value
+coef.min <- coef.min[which(coef.min !=0),]   # get the non=zero coefficients
+var.min <- rownames(as.matrix(coef.min)) # output the names
+lm.input <- as.formula(paste("Y", "~", paste(var.min[-1], collapse = "+"))) 
+  # prepare for lm fomulae
+fit.min.lm <- lm(lm.input, data)
+summary(fit.min.lm) 
+```
+
+Note that although the coefficients are different in absolute terms, their sign is consistent. Thus, our results agree with the fact that LASSO tends to preserve the direction of the relation betwene variables.
+
+
+(e) \textbf{Summary after selection:} Recall that if the null hypothesis is true, then the $p$-value is supposed to be less than $0.05$ about $5\%$ of the time. This means that if we repeat the experiment 100 times then in about 5 of these experiments we see a $p$-value less than $0.05$. In this question, you will explore the validity of summary table after selection. For simplicity, we restrict to choosing a single feature model. 
+* Generate 100 datasets using the `r`-chunk above. You can do this by wrapping the above code into
+```{r, echo = TRUE, eval = T}
+## Remove eval = F when working on homework.
+nexperiment <- 100 ## number of experiments
+pmat <- matrix(0, nrow = 100, ncol = 3)
+## `pmat` is for saving output from questions below.
+colnames(pmat) <- c("Cp", "BIC", "Adj_R2")
+for(idx in 1:nexperiment){
+  set.seed(630 + idx) 
+  
+  #generating data
+  n <- 100 ## sample size n
+  x <- rnorm(n)
+  eps <- rnorm(n)
+  xmat <- matrix(rep(x, 10), ncol = 10)
+  for(i in 1:10){
+   xmat[,i] <- x^{i}
+  }
+  data <- data.frame(X = xmat, Y = eps)
+  
+  #selecting best univariate model
+  fit.exh <- regsubsets(Y ~., data, nvmax = 1, method = "exhaustive")
+  f.e <- summary(fit.exh)
+  univar <- colnames(f.e$which)[f.e$which][2]
+  
+  #fitting model
+  lm.input <- as.formula(paste("Y", "~", univar))
+  fit.loop <- lm(lm.input, data)
+  
+  #extracting p-value
+  p <- anova(fit.loop)$'Pr(>F)'[-2]
+  pmat[idx,] <- rep(p, 3)
+}
+```
+* use the function `regsubsets()` to find the best one variable model (using `nvmax = 1` argument) in each of the 100 datasets according to $C_p$, BIC and adjusted $R^2$. 
+* find and save the $p$-value for each of the three selected models in the matrix `pmat` defined as
+* You must now have 100 different $p$-values for each selection procedure. Find the proportion of times the $p$-value turned out to be less than $0.05$ for $C_p$, BIC and adjusted $R^2$ separately.
+
+We have obtained our matrix of p-values. Now, we will compute the proportion of times such p-values where less than $0.05$.
+
+```{r results=T}
+sum(pmat[,1] <= 0.05)/length(pmat[,1])
+```
+
+* (\textbf{Bonus Question}) Comment on why the proportion is above or below the expected $5\%$.
+
+Notice that when the number of variables is fixed, $C_p$, $BIC$, and adj. $R^2$ are all optimized when $SSR$ is minimized, and so they will always agree on the best model to select. Differences among the three will only occur when comparing models of different sizes.
+
+# Case study 1:  `Auto` data
+
+This will be the last part of the Auto data from ISLR. The original data contains 408 observations about cars. It has some similarity as the Cars data that we use in our lectures. To get the data, first install the package `ISLR`. The data set `Auto` should be loaded automatically. We use this case to go through methods learned so far. 
+
+You can access the necessary data with the following code:
+
+```{r, eval = F, echo = T}
+# check if you have ISLR package, if not, install it
+if(!requireNamespace('ISLR')) install.packages('ISLR') 
+auto_data <- ISLR::Auto
+```
+
+Final modelling question: We want to explore the effects of each feature as best as possible. 
+
+You may explore the possibility of variable transformations. We normally do not suggest to transform $x$ for the purpose of interpretation. You may consider to transform $y$ to either correct the violation of the linear model assumptions or if you feel a transformation of $y$ makes more sense from some theory. In this case we suggest you to look into `GPM=1/MPG`. Can you provide some background knowledge to support the notion: it makes more sense to mode `GPM`?  You may also explore by adding interactions and higher order terms. The model(s) should be as *parsimonious* (simple) as possible, unless the gain in accuracy is significant from your point of view. Use Mallow's $C_p$ or BIC to select the model.
+
+  * Describe the final model and its accuracy. Include diagnostic plots with particular focus on the model residuals.
+  * Summarize the effects found.
+  * Predict the `mpg` of a car that is: built in 1983, in the US, red, 180 inches long, 8 cylinders, 350 displacement, 260 as horsepower, and weighs 4,000 pounds. Give a 95% CI.
+  * Any suggestions as to how to improve the quality of the study?
 
 
 # Case Study 2: What can be done to reduce the crime rates? 
@@ -41,87 +281,13 @@ pacman::p_load(ISLR, readxl, magrittr, ggrepel,dplyr, ggplot2,gridExtra,leaps,ca
 
 Crime data continuation:  We continue to use the crime data analyzed in the lectures. We first would like to visualize how crime rate (`violentcrimes.perpop`) distributes by states.  The following `r`-chunk will read in the entire crime data into the `r`-path and it also creates a subset. 
 
-```{r include=FALSE}
+```{r, echo = T}
 crime.all <- read.csv("CrimeData.csv", stringsAsFactors = F, na.strings = c("?"))
 crime <- dplyr::filter(crime.all, state %in% c("FL", "CA"))
 ```
 
 Show a heat map displaying the mean violent crime by state. You may also show a couple of your favorite summary statistics by state through the heat maps.  Write a brief summary based on your findings.
 
-There are five states without value which are shown in grey. In general, states in south have relatively high crime rate. Los Angeles has the highest mean crime rate while North Dakota has the lowest mean crime rate.
-
-```{r results=TRUE}
-data.s <- crime.all %>%
-  group_by(state) %>%
-  summarise(
-    mean.crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), 
-     crime.rate.min=min(violentcrimes.perpop),
-     crime.rate.max=max(violentcrimes.perpop),
-    crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), #ignore the missing values
-    n=n())
-crime.rate <- data.s[, c("state", "mean.crime.rate")]
-crime.rate$region <- tolower(state.name[match(crime.rate$state, state.abb)])
-crime.rate$center_lat  <- state.center$x[match(crime.rate$state, state.abb)]
-crime.rate$center_long <- state.center$y[match(crime.rate$state, state.abb)]
-states <- map_data("state") 
-map <- merge(states, crime.rate, sort=FALSE, by="region", all.x=TRUE)
-map <- map[order(map$order),]
-ggplot(map, aes(x=long, y=lat, group=group))+
-  geom_polygon(aes(fill= mean.crime.rate))+
-  geom_path()+ 
-  geom_label(data=crime.rate, 
-             aes(x=center_lat, y=center_long, group=NA, label=state), 
-             size=3, label.size = 0) +
-  scale_fill_distiller(palette = "YlGnBu", direction = 1)
-```
-Then we take a look at the unemployed rate and mean income. As can be seen from the heat map below, there is a strong positive relationship between unemployed rate and crime rate and a negative relationship between mean income and crime rate which is consistent with our common sense. The unemployed rate is relatively low in north and high in south. Even though there is no hugh gap in income destribution we can still conclude that mean income is high in north and low in south. And for LA, we can observe that LA has the lowest mean income and the highest unemployed rate which may contribute to its high crime rate.
-```{r results=TRUE}
-data.s <- crime.all %>%
-  group_by(state) %>%
-  summarise(
-     pct.unemployed=mean(pct.unemployed, na.rm=TRUE), 
-     pct.unemployed.min=min(pct.unemployed),
-     pct.unemployed.max=max(pct.unemployed),
-    n=n())
-pct.unemployed <- data.s[, c("state", "pct.unemployed")]
-pct.unemployed$region <- tolower(state.name[match(pct.unemployed$state, state.abb)])
-pct.unemployed$center_lat  <- state.center$x[match(pct.unemployed$state, state.abb)]
-pct.unemployed$center_long <- state.center$y[match(pct.unemployed$state, state.abb)]
-states <- map_data("state") 
-map <- merge(states,pct.unemployed, sort=FALSE, by="region", all.x=TRUE)
-map <- map[order(map$order),]
-ggplot(map, aes(x=long, y=lat, group=group))+
-  geom_polygon(aes(fill= pct.unemployed))+
-  geom_path()+ 
-  geom_label(data=pct.unemployed, 
-             aes(x=center_lat, y=center_long, group=NA, label=state), 
-             size=3, label.size = 0) +
-  scale_fill_distiller(palette = "YlGnBu", direction = 1)
-```
-```{r results=TRUE}
-data.s <- crime.all %>%
-    group_by(state) %>%
-  summarise(
-    income=mean(med.income, na.rm=TRUE), 
-    income.min=min(med.income),
-    income.max=max(med.income),
-    crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), #ignore the missing values
-    n=n())
-income <- data.s[, c("state", "income")]
-income$region <- tolower(state.name[match(income$state, state.abb)])
-income$center_lat  <- state.center$x[match(income$state, state.abb)]
-income$center_long <- state.center$y[match(income$state, state.abb)]
-states <- map_data("state") 
-map <- merge(states, income, sort=FALSE, by="region", all.x=TRUE)
-map <- map[order(map$order),]
-ggplot(map, aes(x=long, y=lat, group=group))+
-  geom_polygon(aes(fill=income))+
-  geom_path()+ 
-  geom_label(data=income, 
-             aes(x=center_lat, y=center_long, group=NA, label=state), 
-             size=3, label.size = 0) +
-  scale_fill_distiller(palette = "YlGnBu", direction = 1)
-```
 
 ## Part II: LASSO selection
 
@@ -130,146 +296,16 @@ Our goal for the rest of the study is to find the factors that are related to vi
 
 1. Prepare a set of sensible factors/variables that you may use to build a model. You may show the R-chunk to show this step. Explain what variables you may have excluded in the study and why? Or what other variables you have created to be included in the study. 
 
-The total missing value is 7204, but there is only a small amount of varibles that contain missing value which indicates for each varibles there are a lot of value that is NA. So, we are going to delete all of these varibles. But, as there is missing value in "violentcrimes.perpop", we first take a look at the missing value in "violentcrimes.perpop"
-```{r echo=TRUE}
-sum(is.na(crime))
-sapply(crime, function(x) any(is.na(x)))
-```
-There is only one missing value in "violentcrimes.perpop". So it would be sensible to kick out that row which contains the only missing value in "violentcrimes.perpop" Also, we delete "community" as if we include this varible, the model may contain to many categorical varibles which will make our model to complicated.
-```{r echo=TRUE}
-sum(is.na(crime$violentcrimes.perpop))   
-```
-Also, we think that using other crimes as possible predictors is meaningless and for those varibles that are a perfect function of others, including these varible will make the model hard tointerpret. So, we decided to take those out as possible predictors for our analyses.
-```{r echo=TRUE}
-crime = crime %>% filter(is.na(violentcrimes.perpop)==FALSE) %>% select(-community)
-```
-
-```{r echo=TRUE}
-var_names_out <- c("num.urban","other.percap", "num.underpov",
-                   "num.vacant.house","num.murders","num.rapes",
-                   "num.robberies", "num.assaults", "num.burglaries",
-                   "num.larcenies", "num.autothefts", "num.arsons")
-crime <- crime[!(names(crime) %in% var_names_out)]
-names_other_crimes <- c( "murder.perpop", "rapes.perpop",                   
-                        "robberies.perpop",  "assaults.perpop",                
-                        "burglaries.perpop", "larcenies.perpop",               
-                        "autothefts.perpop", "arsons.perpop",                  
-                         "nonviolentcrimes.perpop")
-crime <- crime[!(names(crime) %in% names_other_crimes)]
-```
-
-And now we only have 101 varibles.
-```{r echo=TRUE}
-na_flag <- apply(is.na(crime), 2, sum)
-crime_na.omit <- crime[,which(na_flag == 0)]
-#delete all varibles that contains NA
-names(crime_na.omit)
-```
-
 Then use LASSO to choose a reasonable, small model. Fit an OLS model with the variables obtained. The final model should only include variables with $p$-values $< 0.05$. Note: you may choose to use "lambda 1st" or "lambda min" to answer the following questions where applicable.
 
-We first run `glmnet()` with $\lambda = 100$. 
-```{r}
-Y = crime_na.omit[, 101]
-X.fl <- model.matrix(violentcrimes.perpop~., data = crime_na.omit)[, -1]
-```
-
-```{r results=TRUE}
-set.seed(20191009) 
-fit.fl.cv <- cv.glmnet(X.fl, Y, alpha=1, nfolds=10 ) 
-#fit.fl.cv$cvm   
-#fit.fl.cv$lambda.min 
-#fit.fl.cv$nzero   
-plot(fit.fl.cv)
-```
-
-We are going to use "lambda.min" in the final model which can give us relatively more varibles. The coefficients are shown below.
-```{r results=TRUE}
-coef.min <- coef(fit.fl.cv, s="lambda.min") 
-coef.min <- coef.min[which(coef.min !=0),]  
-rownames(as.matrix(coef.min))
-```
-Then we check the $p$-values of each varible. The final model only include variables with $p$-values $< 0.05$. 
-```{r}
-coef.min <- coef(fit.fl.cv, s="lambda.min") 
-coef.min <- coef.min[which(coef.min !=0),]  
-var.min <- rownames(as.matrix(coef.min)) 
-lm.input <- as.formula(paste("violentcrimes.perpop", "~", paste(var.min[-1], collapse = "+")))
-
-fit.min.lm <- lm(lm.input, data=crime_na.omit) 
-lm.output <- coef(fit.min.lm ) 
-summary(fit.min.lm)
-```
-
 2. What is the model reported by LASSO? 
-The model reported by LASSO is:
-$$violentcrimes.perpop = Intercept+race.pctblack + pct.kids2parents +pct.kids.nvrmarried$$
-$$+pct.house.vacant+num.in.shelters$$
-
-Coefficients are given below:
-```{r}
-coef.min
-```
-
 
 3. What is the model after running OLS? Comment on the difference between the equation from questions (2) and that from the OLS here.  
-
-The LASSO estimates are different from that from lm which is shown below:
-```{r echo=FALSE}
-comp <- data.frame(coef.min, lm.output )
-names(comp) <- c("estimates from LASSO", "lm estimates")
-comp
-```
-In general, the LASSO estimates are smaller than lm estimates in absolute value.
-It may due to the difference of LASSO and lm.
-The OLS estimates $\hat\beta_i$ is obtained by minimizing sum of squared errors (RSS):
-
-$$\min_{b_i} \sum_{i=1}^{n} (y_i - \hat{y_i })^{2}.$$
-And for LASSO, that is:
-$$\min_{\beta_0,\,\beta_1,\,\beta_{2},\dots,\beta_{p}} \Big\{\frac{1}{2n} \sum_{i=1}^{n} (y_i - \beta_0 - \beta_1 x_{i1} - \beta_2 x_{i2} - \dots - \beta_p x_{ip})^{2} + \lambda (|\beta_1|+|\beta_2| + \dots +|\beta_p|)\Big\}$$
-The LASSO adds penalty into the equation which can control the sparsity but it makes the estimates biased.
 
 4. What is your final model, after excluding high $p$-value variables? 
 
   a) What is your process of getting this final model?
-  
-We use Anova() to take a look at each estimate. From the result shown below, no adjustment is needed.
-```{r echo=FALSE}
-Anova(fit.min.lm )
-```
-
   b) Write a brief report based on your final model.
-
-```{r echo=FALSE}
-summary(fit.min.lm)
-```
-Our final model is:
-$$violentcrimes.perpop = 1990.9+13.5race.pctblack-22.5pct.kids2parents+81.6pct.kids.nvrmarried$$
-$$+24.8pct.house.vacant+0.2num.in.shelters$$
-After several trials, this selection of variables and transformations produced a model with relatively high predictive power whose estimated parameters are all statistically significant. We will now include some diagnostics information.
-We confirm that the residuals are roughly centered around 0 and have roughly constant variance across the fitted values, which is a good indicator of independence and homoscedasticity. Moreover, The residual QQ-plot reveals that residuals follow a normal distribution but are somewhat fat-tailed to the right. We plot a histogram of the residuals to confirm this.
-
-```{r}
-par(mfrow=c(1,2))
-plot(fit.min.lm,1)
-qqnorm(fit.min.lm$residuals)
-qqline(fit.min.lm$residuals)
-
-fit_data <- data.frame("residuals" = fit.min.lm$residuals, "fitted" = fit.min.lm$fitted.values)
-fit_data %>%
-  ggplot(aes(x = residuals)) + 
-  geom_histogram(binwidth = 70)+
-  labs(title = "Residual Histogram")
-```
-
-The model coefficients estimate the effects of our independent variables on the dependent `violentcrimes.perpop`:
-- race.pctblack: Our model establishes that the relationship between `race.pctblack` and `violentcrimes.perpop` is possitive.We can say that an increase of 1% in `race.pctblack` results in a decrease in average `violentcrimes.perpop` of 13.5%.
-- pct.kids2parents: According to our model, an increase of 1 percent in `pct.kids2parents` results in a change in average `violentcrimes.perpop` of 22.5% decrease.
-- pct.kids.nvrmarried: An increase of 1 percent in `pct.kids.nvrmarried` results in a change in average `violentcrimes.perpop` of 81.6%.
-- pct.house.vacant: According to our model, there is a possitive relationship between  ` pct.house.vacant` and  `violentcrimes.perpop` which means an increase of 1 percent in `pct.house.vacant` results in an average increasement of `violentcrimes.perpop` of 24.8%
-- num.in.shelters: From the final model we can conclude that 1 percent increasement in `num.in.shelters` results in a 0.2% increase in `violentcrimes.perpop` in average.
-
-Out of a large number of factors, we see that family structure is very important.
 
 ## Part III: Elastic Net
 
@@ -277,66 +313,13 @@ Now, instead of LASSO, we want to consider how changing the value of $\alpha$ (i
 
 1. What is your final elastic net model? What were the $\alpha$ and $\lambda$ values? What is the prediction error?
 
-We take $\alpha$ = .9 to make more varible add into our model. The optimal $\lambda$ is about 70 after running a few runs of cv.glmnet.
-
-```{r}
-fit.fl.cv.2 <- cv.glmnet(X.fl, Y, alpha=0.9, nfolds=10)
-plot(fit.fl.cv.2)
-#fit.fl.cv$lambda.1se
-#fit.fl.cv$lambda.min
-```
-
-The remaining varibles in the elastic model are given below:
-
-```{r echo=FALSE}
-set.seed(20191009)
-fit.fl.final <- glmnet(X.fl, Y, alpha=.9, lambda=70)
-beta.final <- coef(fit.fl.final)
-beta.final <- beta.final[which(beta.final !=0),]
-beta.final <- as.matrix(beta.final)
-rownames(beta.final)
-```
-
 2. Use the elastic net variables in an OLS model. What is the equation, and what is the prediction error?
 
-The equation is:
-$$violentcrimes.perpop = Intercept+race.pctblack + male.pct.divorc + pct.kids2parents $$
-$$+pct.kids.nvrmarried+pct.house.vacant+num.in.shelters$$
-
-And then we take a look at the summary of the elastic net variables in an OLS model.
-```{r echo=FALSE}
-fit.final=lm(violentcrimes.perpop~race.pctblack +male.pct.divorce+pct.kids2parents 
-+pct.kids2parents
-+pct.kids.nvrmarried
-+pct.house.vacant+num.in.shelters ,crime_na.omit)
-summary(fit.final)
-```
-We use RSE to estimate the prediction error which is 370
-
 3. Summarize your findings, with particular focus on the difference between the two equations.
-
-In this case, we can observe that the value of estimates from LASSO is smaller than lm estimates and the sign agrees. It proves that although LASSO could identify important varible, the estimates from LASSO is biased and tends to give a smaller value.
-```{r echo=FALSE}
-coef.min.final <- coef(fit.fl.final)
-coef.min.final <- coef.min.final[which(coef.min.final !=0)]
-lm.out.2 <- coef(fit.final) 
-
-comp_2 <- data.frame(coef.min.final, lm.out.2 )
-names(comp_2) <- c("estimates from relaxted LASSO", "lm estimates")
-comp_2
-```
-
-
+ 
 ## Summary
 
 Write a brief summary: 1) Summarize the crime situation in general in United States. 2) Based on the analyse done, can you make some suggestions to local officials/policy holders how to reduce the crime rates. 3) How to improve the study.
 
-1)Overall, we can see that there are large differences in crime rates across states in the United States. The crime rate in the southern and coastal areas is relatively high. The difference in crime rates between adjacent areas is not significant. Los Angeles has the highest mean crime rate while North Dakota has the lowest mean crime rate.
-
-2)From the existing results, we found that some indicators related to adolescents have a strong correlation with crime rates. This suggests that the phenomenon of juvenile delinquency may have a growing trend. Therefore, we should strengthen the attention and guidance of adolescents' growth, pay attention to the mental health problems of adolescents, and correct some juvenile crimes in a timely manner to achieve the goal of reducing crime rates. In addition, marriage has a relatively large impact on the crime rate. In one method, children from single-parent families or unmarried families are more likely to commit crimes. At the same time, men who are divorced from their spouses are also prone to criminal thoughts. A happy family can not only be a guarantee of people's mental health, but also an important factor affecting social security. At the same time, we also found that the proportion of black people has a positive correlation with crime rate. And we believe that behind racial issues, we should be more concerned with the internal causes of positive correlation between the two. It may be that the blacks may be subject to employment discrimination that makes their average wages lower. And lower wages not only make them vulnerable to criminal motives, but also make them want to have more children to get some government subsidies. These children may not be well educated and will be a high-risk target for juvenile delinquency. If we can eliminate the discrimination faced by black people in employment, education, etc., and give them more attention, this may effectively reduce the crime rate. Finally, housing is also an indicator that we should pay attention to. In general, crime is more likely to occur in inaccessible places, and higher housing vacancy rates make some communities a paradise for criminals. At the same time, vacant homes are unable to collect property management fees and reduce the funds available for investment in community safety. We can observe a positive correlation between the number of houses and the crime rate. This may be due to the correlation between the number of houses and the vacancy rate of the house. Therefore, reducing vacant homes is also an effective way to reduce crime rates.
-
-3)As already mentioned in the last question, our existing results seem to show a tendency to racial discrimination. In fact, because we lack some variables, we can't explore the reasons why blacks are positively correlated with crime rates. If we can conduct an in-depth investigation and exploration of the life, work, and family situation of black people, we may find some variables to explain. 
-  In this study, we use cross-section data from 2 states. However, if we can generate more data from different time space, we can make a analysis based on time series data or penal data which could give us more information about crime rate. The current models can not predict crime rates and can only provide a way to explain crime rates. For crime rates, there may be strong autocorrelation, so time series data can provide us with a good predictor of crime rates.
-  Also, we find a lot of missing value in EDA meaning that we may delete some important varibles. If we can get more complete data, the final model may change. In addition, We did not consider the collinearity between the variables, which makes the coefficients may be biased.
 
 
