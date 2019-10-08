@@ -1,0 +1,313 @@
+
+---
+title: "STAT 471/571/701 Modern Data Mining, HW 2"
+author:
+- Group Member 1
+- Group Member 2
+- Group Member 3
+date: 'Due: 9:00 AM,  October 7, 2019'
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    code_folding: show
+    highlight: haddock
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
+options(scipen = 0, digits = 3)  # controls base R output
+# check if you have ISLR package, if not, install it
+if(!require('pacman')) {install.packages('pacman')}
+pacman::p_load(ISLR, readxl, magrittr, dplyr, ggplot2) # add the packages needed
+```
+
+
+\pagebreak
+
+# Overview
+
+Multiple regression is one of the most popular methods used in statistics as well as in machine learning. We use linear models as a working model for its simplicity and interpretability. It is important that we use domain knowledge as much as we could to determine the form of the response as well as the function format for the factors. Then, when we have many possible features to be included in the working model it is inevitable that we need to choose a best possible model with a sensible criterion. `Cp`, `BIC` and regularizations are introduced. Be aware that if a model selection is done formally or informally, the inferences obtained with the final `lm()` fit may not be valid. Some asjustment will be needed. This last step is beyond the scope of this class. Check the current research line that Linda/Arun are working on. 
+
+## Objectives
+
+- Model building process
+
+- Methods
+    - Model selection
+        + All subsets
+        + Forward/Backward
+    - Regularization
+        + LASSO (L1 penalty)
+        + Ridge (L2 penalty)
+        + Elastic net
+- Understand the criteia 
+    - `Cp`
+    - Testing Errors
+    - `BIC` 
+    - `K fold Cross Validation`
+    - `LASSO` 
+- Packages
+    - `lm()`, `Anova`
+    - `regsubsets()`
+    - `glmnet()` & `cv.glmnet()`
+
+    
+
+##  Instructions
+
+- **Homework assignments can be done in a group consisting of up to three members**. 
+
+- **All work submitted should be completed in the R markdown format.** You can find a cheat sheet for R Markdown [here](https://github.com/rstudio/cheatsheets/raw/master/rmarkdown-2.0.pdf). For those who have never used it before, we urge you to start this homework as soon as possible. 
+
+- **Submit the following files, one submission for each group:**  (1) Rmd file, (2) a compiled PDF or HTML version, and (3) all necessary data files. You can directly edit this file to add your answers. If you intend to work on the problems separately within your group, compile your answers into one Rmd file before submitting. We encourage that you at least attempt each problem by yourself before working with your teammates. Additionally, ensure that you can 'knit' or compile your Rmd file. It is also likely that you need to configure Rstudio to properly convert files to PDF. [**These instructions**](http://kbroman.org/knitr_knutshell/pages/latex.html#converting-knitrlatex-to-pdf) should be helpful.
+
+- In general, be as concise as possible while giving a fully complete answer. All necessary datasets are available in the "Data" folder or this homework folder on Canvas. Make sure to document your code with comments so the teaching fellows can follow along. R Markdown is particularly useful because it follows a 'stream of consciousness' approach: as you write code in a code chunk, make sure to explain what you are doing outside of the chunk. 
+
+- A few good submissions will be used as sample solutions. When those are released, make sure to compare your answers and understand the solutions.
+
+
+# Review materials
+
+- Study both R-tutorials
+- Study lecture 3: Model selection
+- Study lecture 4: Regularization
+- Study lecture 2: Multiple regression
+
+
+
+Review the code and concepts covered during lectures: multiple regression, model selection and penalized regression through elastic net. 
+
+# Conceptual study
+In this question, you will generate data (from a linear model) and perform variable selection using $C_p$, BIC, adjusted $R^2$ and lasso. You will also see that the summary from `lm()` can be misleading after model selection (as hinted in the overview). See ISLR, page 262, problem 8 for reference.
+
+The following `r`-chunk generate data from a linear model with 10 features. 
+```{r, echo = T, eval = F}
+## Remove eval = F when working on homework.
+n <- 100 ## sample size n
+x <- rnorm(n)
+eps <- rnorm(n)
+xmat <- matrix(rep(x, 10), ncol = 10)
+for(i in 1:10){
+  xmat[,i] <- x^{i}
+}
+data <- data.frame(X = xmat, Y = eps)
+```
+`data` contains the response `Y` and feature matrix `X` (with 10 columns).
+
+(a) What is the TRUE model? (Write the true model relating $Y$ to features in $X$).
+
+(b) Use the function `regsubsets()` to perform best subset selection in order to choose the best model. What is the best model obtained according to $C_p$, $BIC$ and adjusted $R^2$? Show some plots to provide evidence for your answer, and report the coefficients of the best model obtained.  
+
+(c) Describe as accurate as possible what $C_p$ and BIC are estimating?
+
+(d) Fit a lasso model to the simulated data. Use cross-validation to select the optimal value of $\lambda$. Create plots of the cross-validation error as a function of $\lambda$. Report the resulting coefficient estimates, and discuss the results obtained. 
+(e) \textbf{Summary after selection:} Recall that if the null hypothesis is true, then the $p$-value is supposed to be less than $0.05$ about $5\%$ of the time. This means that if we repeat the experiment 100 times then in about 5 of these experiments we see a $p$-value less than $0.05$. In this question, you will explore the validity of summary table after selection. For simplicity, we restrict to choosing a single feature model. 
+* Generate 100 datasets using the `r`-chunk above. You can do this by wrapping the above code into
+```{r, echo = TRUE, eval = F}
+## Remove eval = F when working on homework.
+nexperiment <- 100 ## number of experiments
+pmat <- matrix(0, nrow = 100, ncol = 3)
+## `pmat` is for saving output from questions below.
+colnames(pmat) <- c("Cp", "BIC", "Adj_R2")
+for(idx in 1:nexperiment){
+  set.seed(PENN.ID + idx) 
+  ## replace PENN.ID by last three digits of your ID.
+  ## Setting the seed helps you to reproduce.
+  ... # The code above comes here.
+  ... # code for questions below comes here.
+}
+```
+* use the function `regsubsets()` to find the best one variable model (using `nvmax = 1` argument) in each of the 100 datasets according to $C_p$, BIC and adjusted $R^2$. 
+* find and save the $p$-value for each of the three selected models in the matrix `pmat` defined as
+* You must now have 100 different $p$-values for each selection procedure. Find the proportion of times the $p$-value turned out to be less than $0.05$ for $C_p$, BIC and adjusted $R^2$ separately.
+* (\textbf{Bonus Question}) Comment on why the proportion is above or below the expected $5\%$.
+
+# Case study 1:  `Auto` data
+
+This will be the last part of the Auto data from ISLR. The original data contains 408 observations about cars. It has some similarity as the Cars data that we use in our lectures. To get the data, first install the package `ISLR`. The data set `Auto` should be loaded automatically. We use this case to go through methods learned so far. 
+
+You can access the necessary data with the following code:
+
+```{r, eval = F, echo = T}
+# check if you have ISLR package, if not, install it
+if(!requireNamespace('ISLR')) install.packages('ISLR') 
+auto_data <- ISLR::Auto
+```
+
+Final modelling question: We want to explore the effects of each feature as best as possible. 
+
+You may explore the possibility of variable transformations. We normally do not suggest to transform $x$ for the purpose of interpretation. You may consider to transform $y$ to either correct the violation of the linear model assumptions or if you feel a transformation of $y$ makes more sense from some theory. In this case we suggest you to look into `GPM=1/MPG`. Can you provide some background knowledge to support the notion: it makes more sense to mode `GPM`?  You may also explore by adding interactions and higher order terms. The model(s) should be as *parsimonious* (simple) as possible, unless the gain in accuracy is significant from your point of view. Use Mallow's $C_p$ or BIC to select the model.
+
+Both "MPG" and "GPM" have real meanings. Here are two reasons why we choose "GPM":
+From the economy perspective, we choose to model "GPM" instead of "MPG" is basically due to measurement of fuel efficiency. "MPG" is misleading, which leads consumers to believe that fuel consumption is reduced at an even rate as efficiency improves. However, consider a simple example. An improvement from 34 to 50 mpg saves 94 gallons, while from 18 to 28 mpg saves 198 gallons, almost twice as much gas as former one. If we apply "GPM" as measurement, 18mpg becomes 5.5 gallons per 100 miles and 28 mpg is 3.6 gallons per 100 miles--saving 2 gallons. And the improvement from 34 to 50 mpg reduces gas consumption from 3 to 2 gallons per 100 miles, telling us saves only half as much gas and money.
+From the regression perspective, we can conduct EDA. Plot the scatterplot of gpm vs horsepower and mpg vs horsepower. We can easily see there is a linear relationship between gpm vs horsepower, while the relationship between mpg vs horsepower is more likely exp(-x) rather than linear.
+```{r}
+par(mfrow=c(1, 2))
+plot(auto_data$horsepower, auto_data$mpg, xlab="Horsepower", ylab="MPG", main="Scatter plot of mpg vs horsepower")
+data <- auto_data %>%
+  mutate(gpm = 1/mpg) %>%
+  select(-mpg)
+plot(data$horsepower, data$gpm, xlab="Horsepower", ylab="GPM", main="Scatter plot of gpm vs horsepower")
+```
+Since there are only 8 samples having 3 or 5 cylinders, we can drop these samples.
+```{r}
+table(data$cylinders)
+data <- data %>%
+  filter(cylinders %in% c(4, 6, 8))
+```
+We use regsubsets() to select model. Notice origin is a categorical variable, first we consider the interaction between origin and other numerical variables.
+```{r}
+library(leaps)
+library(car)
+data$origin <- as.factor(data$origin)
+fit.inter <- regsubsets(gpm~origin*cylinders+origin*displacement+origin*horsepower+origin*weight+origin*acceleration+
+                          origin*year, data, nvmax=25, method="exhaustive")
+f.i <- summary(fit.inter)
+plot(f.i$cp, xlab="Number of predictors", ylab="Cp", col="red", type="p", pch=16)
+```
+The number of predictors with minimal Cp is 10.
+```{r}
+which.min(f.i$cp)
+```
+However, after performing linear regression on these chosen variables, we can see there are many of them not significant.
+```{r}
+fit.inter.var <- f.i$which
+fit.op.var <- fit.inter.var[10, ]
+colnames(fit.inter.var)[fit.op.var]
+fit.op <- lm(gpm~cylinders+origin*displacement+origin*horsepower+weight+origin*acceleration+origin*year, data)
+Anova(fit.op)
+```
+Hence, we need to check size=9, 8, 7... Finally, we found when size=5, all coefficients are significant. Notice the model is
+without interaction now.
+```{r}
+fit.inter.var <- f.i$which
+fit.subop.var <- fit.inter.var[5, ]
+colnames(fit.inter.var)[fit.subop.var]
+fit.op <- lm(gpm~cylinders+horsepower+weight+acceleration+year, data)
+Anova(fit.op)
+```
+Futhermore, we can kick out the interaction and re-run the model.
+```{r}
+fit.no.inter <- regsubsets(gpm~cylinders+displacement+horsepower+weight+acceleration+year+origin, data, nvmax=25,
+                           method="exhaustive")
+f.ni <- summary(fit.no.inter)
+plot(f.ni$cp, xlab="Number of predictors", ylab="Cp", col="red", type="p", pch=16)
+```
+The minimal Cp comes in size 8. To make our model as simple as possible without losing advantage of Cp, we can choose model in size 3, with all coefficients significant at level .001. 
+```{r}
+which.min(f.ni$cp)
+fit.nointer.var <- f.ni$which
+fit.subop.var <- fit.nointer.var[3, ]
+colnames(fit.nointer.var)[fit.subop.var]
+fit.op <- lm(gpm~horsepower+weight+year, data)
+summary(fit.op)
+```
+
+* Describe the final model and its accuracy. Include diagnostic plots with particular focus on the model residuals.
+
+Our final model contains variabls "horsepower", "weight", and "year". All variables are statistically significant at level .001. The diagnostic plots are as follow:
+```{r}
+par(mfrow=c(1, 2))
+plot(fit.op, 1)
+plot(fit.op, 2)
+```
+The linearity is basically met, and the normality is skewed, but not too bad.
+
+* Summarize the effects found.
+
+When other variables are fixed, on average, horsepower goes up one unit, gpm goes up 7.11e-05. Similarly, weight goes up one unit, gpm goes up 1.30e-05. And finally, year goes up one unit, gpm goes down 1.27e-03. 
+```{r}
+fit.op$coefficients
+```
+
+* Predict the `mpg` of a car that is: built in 1983, in the US, red, 180 inches long, 8 cylinders, 350 displacement, 260 as horsepower, and weighs 4,000 pounds. Give a 95% CI.
+
+The 95% CI for gpm is (0.0589, 0.0675). Since mpg is the reciprocal of gpm, hence 95% CI for mpg is equivalently (14.815, 16.978).
+```{r}
+newcar <- data.frame(horsepower=260, weight=4000, year=83)
+fit.mean.gpm <- predict(fit.op, newcar, interval="confidence")
+fit.mean.gpm
+```
+
+* Any suggestions as to how to improve the quality of the study?
+
+First, if we count numbers of samples from different origin, i.e, origin 1, 2, 3, we can see there is a selection bias. The samples from origin 1 is almost 3 times as many as those from 2 or 3. Hence, to improve the study, we need to gather more samples from origin 2 and 3.
+```{r}
+table(auto_data$origin)
+```
+Futhermore, if we look at each variable and draw the boxplots of origin vs all other variables, we can see the dataset again
+suffers from severe sampling bias. Say, origin vs cylinders, all cars from origin 2 and 3 are basically with 4 cylinders. If manufactures in origin 2 and 3 only produce cars with 4 cylinders, we have no other choice. But this seems impossible, thus we need to include cars with other number of cylinders from origin 2 and 3, then re-run the model to see whether there is a difference. Similarly, the variability of displacement in origin 2 and 3 is too narrow, and we'd better include samples in a larger interval, like origin 1.
+```{r}
+library(gridExtra)
+auto_data$origin <- as.factor(auto_data$origin)
+plot = list(ggplot(auto_data) + geom_boxplot(aes(x = origin, y = horsepower)), 
+            ggplot(auto_data) + geom_boxplot(aes(x = origin, y =weight)),
+            ggplot(auto_data) + geom_boxplot(aes(x = origin, y =cylinders)),
+            ggplot(auto_data) + geom_boxplot(aes(x = origin, y =displacement)),
+            ggplot(auto_data) + geom_boxplot(aes(x = origin, y =acceleration)),
+            ggplot(auto_data) + geom_boxplot(aes(x = origin, y =year)))
+
+grid.arrange(grobs = plot, ncol = 3, widths = c(1,1,1))
+```
+
+# Case Study 2: What can be done to reduce the crime rates? 
+
+## Part I: EDA
+
+Crime data continuation:  We continue to use the crime data analyzed in the lectures. We first would like to visualize how crime rate (`violentcrimes.perpop`) distributes by states.  The following `r`-chunk will read in the entire crime data into the `r`-path and it also creates a subset. 
+
+```{r, echo = T}
+crime.all <- read.csv("CrimeData.csv", stringsAsFactors = F, na.strings = c("?"))
+crime <- dplyr::filter(crime.all, state %in% c("FL", "CA"))
+```
+
+Show a heat map displaying the mean violent crime by state. You may also show a couple of your favorite summary statistics by state through the heat maps.  Write a brief summary based on your findings.
+
+
+## Part II: LASSO selection
+
+
+Our goal for the rest of the study is to find the factors that are related to violent crime. We will only use communities from two states `FL` and `CA` to assure the maximum possible number of variables. 
+
+1. Prepare a set of sensible factors/variables that you may use to build a model. You may show the R-chunk to show this step. Explain what variables you may have excluded in the study and why? Or what other variables you have created to be included in the study. 
+
+Then use LASSO to choose a reasonable, small model. Fit an OLS model with the variables obtained. The final model should only include variables with $p$-values $< 0.05$. Note: you may choose to use "lambda 1st" or "lambda min" to answer the following questions where applicable.
+
+2. What is the model reported by LASSO? 
+
+3. What is the model after running OLS? Comment on the difference between the equation from questions (2) and that from the OLS here.  
+
+4. What is your final model, after excluding high $p$-value variables? 
+
+  a) What is your process of getting this final model?
+  b) Write a brief report based on your final model.
+
+## Part III: Elastic Net
+
+Now, instead of LASSO, we want to consider how changing the value of $\alpha$ (i.e. mixing between LASSO and Ridge) will affect the model. Cross-validate between $\alpha$ and $\lambda$, instead of just $\lambda$. Note that the final model may have variables with $p$-values higher than $0.05$; this is because we are optimizing for accuracy rather than parsimony. 
+
+1. What is your final elastic net model? What were the $\alpha$ and $\lambda$ values? What is the prediction error?
+
+2. Use the elastic net variables in an OLS model. What is the equation, and what is the prediction error?
+
+3. Summarize your findings, with particular focus on the difference between the two equations.
+ 
+## Summary
+
+Write a brief summary: 1) Summarize the crime situation in general in United States. 2) Based on the analyse done, can you make some suggestions to local officials/policy holders how to reduce the crime rates. 3) How to improve the study.
+
+
+
