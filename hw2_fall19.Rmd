@@ -1,0 +1,342 @@
+
+---
+title: "STAT 471/571/701 Modern Data Mining, HW 2"
+author:
+- Group Member 1
+- Group Member 2
+- Group Member 3
+date: 'Due: 9:00 AM,  October 7, 2019'
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    code_folding: show
+    highlight: haddock
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
+options(scipen = 0, digits = 3)  # controls base R output
+# check if you have ISLR package, if not, install it
+if(!require('pacman')) {install.packages('pacman')}
+pacman::p_load(ISLR, readxl, magrittr, ggrepel,dplyr, ggplot2,gridExtra,leaps,car,reshape2,gplots,glmnet) # add the packages needed
+```
+
+
+# Case Study 2: What can be done to reduce the crime rates? 
+
+## Part I: EDA
+
+Crime data continuation:  We continue to use the crime data analyzed in the lectures. We first would like to visualize how crime rate (`violentcrimes.perpop`) distributes by states.  The following `r`-chunk will read in the entire crime data into the `r`-path and it also creates a subset. 
+
+```{r include=FALSE}
+crime.all <- read.csv("CrimeData.csv", stringsAsFactors = F, na.strings = c("?"))
+crime <- dplyr::filter(crime.all, state %in% c("FL", "CA"))
+```
+
+Show a heat map displaying the mean violent crime by state. You may also show a couple of your favorite summary statistics by state through the heat maps.  Write a brief summary based on your findings.
+
+There are five states without value which are shown in grey. In general, states in south have relatively high crime rate. Los Angeles has the highest mean crime rate while North Dakota has the lowest mean crime rate.
+
+```{r results=TRUE}
+data.s <- crime.all %>%
+  group_by(state) %>%
+  summarise(
+    mean.crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), 
+     crime.rate.min=min(violentcrimes.perpop),
+     crime.rate.max=max(violentcrimes.perpop),
+    crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), #ignore the missing values
+    n=n())
+crime.rate <- data.s[, c("state", "mean.crime.rate")]
+crime.rate$region <- tolower(state.name[match(crime.rate$state, state.abb)])
+crime.rate$center_lat  <- state.center$x[match(crime.rate$state, state.abb)]
+crime.rate$center_long <- state.center$y[match(crime.rate$state, state.abb)]
+states <- map_data("state") 
+map <- merge(states, crime.rate, sort=FALSE, by="region", all.x=TRUE)
+map <- map[order(map$order),]
+ggplot(map, aes(x=long, y=lat, group=group))+
+  geom_polygon(aes(fill= mean.crime.rate))+
+  geom_path()+ 
+  geom_label(data=crime.rate, 
+             aes(x=center_lat, y=center_long, group=NA, label=state), 
+             size=3, label.size = 0) +
+  scale_fill_distiller(palette = "YlGnBu", direction = 1)
+```
+Then we take a look at the unemployed rate and mean income. As can be seen from the heat map below, there is a strong positive relationship between unemployed rate and crime rate and a negative relationship between mean income and crime rate which is consistent with our common sense. The unemployed rate is relatively low in north and high in south. Even though there is no hugh gap in income destribution we can still conclude that mean income is high in north and low in south. And for LA, we can observe that LA has the lowest mean income and the highest unemployed rate which may contribute to its high crime rate.
+```{r results=TRUE}
+data.s <- crime.all %>%
+  group_by(state) %>%
+  summarise(
+     pct.unemployed=mean(pct.unemployed, na.rm=TRUE), 
+     pct.unemployed.min=min(pct.unemployed),
+     pct.unemployed.max=max(pct.unemployed),
+    n=n())
+pct.unemployed <- data.s[, c("state", "pct.unemployed")]
+pct.unemployed$region <- tolower(state.name[match(pct.unemployed$state, state.abb)])
+pct.unemployed$center_lat  <- state.center$x[match(pct.unemployed$state, state.abb)]
+pct.unemployed$center_long <- state.center$y[match(pct.unemployed$state, state.abb)]
+states <- map_data("state") 
+map <- merge(states,pct.unemployed, sort=FALSE, by="region", all.x=TRUE)
+map <- map[order(map$order),]
+ggplot(map, aes(x=long, y=lat, group=group))+
+  geom_polygon(aes(fill= pct.unemployed))+
+  geom_path()+ 
+  geom_label(data=pct.unemployed, 
+             aes(x=center_lat, y=center_long, group=NA, label=state), 
+             size=3, label.size = 0) +
+  scale_fill_distiller(palette = "YlGnBu", direction = 1)
+```
+```{r results=TRUE}
+data.s <- crime.all %>%
+    group_by(state) %>%
+  summarise(
+    income=mean(med.income, na.rm=TRUE), 
+    income.min=min(med.income),
+    income.max=max(med.income),
+    crime.rate=mean(violentcrimes.perpop, na.rm=TRUE), #ignore the missing values
+    n=n())
+income <- data.s[, c("state", "income")]
+income$region <- tolower(state.name[match(income$state, state.abb)])
+income$center_lat  <- state.center$x[match(income$state, state.abb)]
+income$center_long <- state.center$y[match(income$state, state.abb)]
+states <- map_data("state") 
+map <- merge(states, income, sort=FALSE, by="region", all.x=TRUE)
+map <- map[order(map$order),]
+ggplot(map, aes(x=long, y=lat, group=group))+
+  geom_polygon(aes(fill=income))+
+  geom_path()+ 
+  geom_label(data=income, 
+             aes(x=center_lat, y=center_long, group=NA, label=state), 
+             size=3, label.size = 0) +
+  scale_fill_distiller(palette = "YlGnBu", direction = 1)
+```
+
+## Part II: LASSO selection
+
+
+Our goal for the rest of the study is to find the factors that are related to violent crime. We will only use communities from two states `FL` and `CA` to assure the maximum possible number of variables. 
+
+1. Prepare a set of sensible factors/variables that you may use to build a model. You may show the R-chunk to show this step. Explain what variables you may have excluded in the study and why? Or what other variables you have created to be included in the study. 
+
+The total missing value is 7204, but there is only a small amount of varibles that contain missing value which indicates for each varibles there are a lot of value that is NA. So, we are going to delete all of these varibles. But, as there is missing value in "violentcrimes.perpop", we first take a look at the missing value in "violentcrimes.perpop"
+```{r echo=TRUE}
+sum(is.na(crime))
+sapply(crime, function(x) any(is.na(x)))
+```
+There is only one missing value in "violentcrimes.perpop". So it would be sensible to kick out that row which contains the only missing value in "violentcrimes.perpop" Also, we delete "community" as if we include this varible, the model may contain to many categorical varibles which will make our model to complicated.
+```{r echo=TRUE}
+sum(is.na(crime$violentcrimes.perpop))   
+```
+Also, we think that using other crimes as possible predictors is meaningless and for those varibles that are a perfect function of others, including these varible will make the model hard tointerpret. So, we decided to take those out as possible predictors for our analyses.
+```{r echo=TRUE}
+crime = crime %>% filter(is.na(violentcrimes.perpop)==FALSE) %>% select(-community)
+```
+
+```{r echo=TRUE}
+var_names_out <- c("num.urban","other.percap", "num.underpov",
+                   "num.vacant.house","num.murders","num.rapes",
+                   "num.robberies", "num.assaults", "num.burglaries",
+                   "num.larcenies", "num.autothefts", "num.arsons")
+crime <- crime[!(names(crime) %in% var_names_out)]
+names_other_crimes <- c( "murder.perpop", "rapes.perpop",                   
+                        "robberies.perpop",  "assaults.perpop",                
+                        "burglaries.perpop", "larcenies.perpop",               
+                        "autothefts.perpop", "arsons.perpop",                  
+                         "nonviolentcrimes.perpop")
+crime <- crime[!(names(crime) %in% names_other_crimes)]
+```
+
+And now we only have 101 varibles.
+```{r echo=TRUE}
+na_flag <- apply(is.na(crime), 2, sum)
+crime_na.omit <- crime[,which(na_flag == 0)]
+#delete all varibles that contains NA
+names(crime_na.omit)
+```
+
+Then use LASSO to choose a reasonable, small model. Fit an OLS model with the variables obtained. The final model should only include variables with $p$-values $< 0.05$. Note: you may choose to use "lambda 1st" or "lambda min" to answer the following questions where applicable.
+
+We first run `glmnet()` with $\lambda = 100$. 
+```{r}
+Y = crime_na.omit[, 101]
+X.fl <- model.matrix(violentcrimes.perpop~., data = crime_na.omit)[, -1]
+```
+
+```{r results=TRUE}
+set.seed(20191009) 
+fit.fl.cv <- cv.glmnet(X.fl, Y, alpha=1, nfolds=10 ) 
+#fit.fl.cv$cvm   
+#fit.fl.cv$lambda.min 
+#fit.fl.cv$nzero   
+plot(fit.fl.cv)
+```
+
+We are going to use "lambda.min" in the final model which can give us relatively more varibles. The coefficients are shown below.
+```{r results=TRUE}
+coef.min <- coef(fit.fl.cv, s="lambda.min") 
+coef.min <- coef.min[which(coef.min !=0),]  
+rownames(as.matrix(coef.min))
+```
+Then we check the $p$-values of each varible. The final model only include variables with $p$-values $< 0.05$. 
+```{r}
+coef.min <- coef(fit.fl.cv, s="lambda.min") 
+coef.min <- coef.min[which(coef.min !=0),]  
+var.min <- rownames(as.matrix(coef.min)) 
+lm.input <- as.formula(paste("violentcrimes.perpop", "~", paste(var.min[-1], collapse = "+")))
+
+fit.min.lm <- lm(lm.input, data=crime_na.omit) 
+lm.output <- coef(fit.min.lm ) 
+summary(fit.min.lm)
+```
+
+2. What is the model reported by LASSO? 
+The model reported by LASSO is:
+$$violentcrimes.perpop = Intercept+race.pctblack + pct.kids2parents +pct.kids.nvrmarried$$
+$$+pct.house.vacant+num.in.shelters$$
+
+Coefficients are given below:
+```{r}
+coef.min
+```
+
+
+3. What is the model after running OLS? Comment on the difference between the equation from questions (2) and that from the OLS here.  
+
+The LASSO estimates are different from that from lm which is shown below:
+```{r echo=FALSE}
+comp <- data.frame(coef.min, lm.output )
+names(comp) <- c("estimates from LASSO", "lm estimates")
+comp
+```
+In general, the LASSO estimates are smaller than lm estimates in absolute value.
+It may due to the difference of LASSO and lm.
+The OLS estimates $\hat\beta_i$ is obtained by minimizing sum of squared errors (RSS):
+
+$$\min_{b_i} \sum_{i=1}^{n} (y_i - \hat{y_i })^{2}.$$
+And for LASSO, that is:
+$$\min_{\beta_0,\,\beta_1,\,\beta_{2},\dots,\beta_{p}} \Big\{\frac{1}{2n} \sum_{i=1}^{n} (y_i - \beta_0 - \beta_1 x_{i1} - \beta_2 x_{i2} - \dots - \beta_p x_{ip})^{2} + \lambda (|\beta_1|+|\beta_2| + \dots +|\beta_p|)\Big\}$$
+The LASSO adds penalty into the equation which can control the sparsity but it makes the estimates biased.
+
+4. What is your final model, after excluding high $p$-value variables? 
+
+  a) What is your process of getting this final model?
+  
+We use Anova() to take a look at each estimate. From the result shown below, no adjustment is needed.
+```{r echo=FALSE}
+Anova(fit.min.lm )
+```
+
+  b) Write a brief report based on your final model.
+
+```{r echo=FALSE}
+summary(fit.min.lm)
+```
+Our final model is:
+$$violentcrimes.perpop = 1990.9+13.5race.pctblack-22.5pct.kids2parents+81.6pct.kids.nvrmarried$$
+$$+24.8pct.house.vacant+0.2num.in.shelters$$
+After several trials, this selection of variables and transformations produced a model with relatively high predictive power whose estimated parameters are all statistically significant. We will now include some diagnostics information.
+We confirm that the residuals are roughly centered around 0 and have roughly constant variance across the fitted values, which is a good indicator of independence and homoscedasticity. Moreover, The residual QQ-plot reveals that residuals follow a normal distribution but are somewhat fat-tailed to the right. We plot a histogram of the residuals to confirm this.
+
+```{r}
+par(mfrow=c(1,2))
+plot(fit.min.lm,1)
+qqnorm(fit.min.lm$residuals)
+qqline(fit.min.lm$residuals)
+
+fit_data <- data.frame("residuals" = fit.min.lm$residuals, "fitted" = fit.min.lm$fitted.values)
+fit_data %>%
+  ggplot(aes(x = residuals)) + 
+  geom_histogram(binwidth = 70)+
+  labs(title = "Residual Histogram")
+```
+
+The model coefficients estimate the effects of our independent variables on the dependent `violentcrimes.perpop`:
+- race.pctblack: Our model establishes that the relationship between `race.pctblack` and `violentcrimes.perpop` is possitive.We can say that an increase of 1% in `race.pctblack` results in a decrease in average `violentcrimes.perpop` of 13.5%.
+- pct.kids2parents: According to our model, an increase of 1 percent in `pct.kids2parents` results in a change in average `violentcrimes.perpop` of 22.5% decrease.
+- pct.kids.nvrmarried: An increase of 1 percent in `pct.kids.nvrmarried` results in a change in average `violentcrimes.perpop` of 81.6%.
+- pct.house.vacant: According to our model, there is a possitive relationship between  ` pct.house.vacant` and  `violentcrimes.perpop` which means an increase of 1 percent in `pct.house.vacant` results in an average increasement of `violentcrimes.perpop` of 24.8%
+- num.in.shelters: From the final model we can conclude that 1 percent increasement in `num.in.shelters` results in a 0.2% increase in `violentcrimes.perpop` in average.
+
+Out of a large number of factors, we see that family structure is very important.
+
+## Part III: Elastic Net
+
+Now, instead of LASSO, we want to consider how changing the value of $\alpha$ (i.e. mixing between LASSO and Ridge) will affect the model. Cross-validate between $\alpha$ and $\lambda$, instead of just $\lambda$. Note that the final model may have variables with $p$-values higher than $0.05$; this is because we are optimizing for accuracy rather than parsimony. 
+
+1. What is your final elastic net model? What were the $\alpha$ and $\lambda$ values? What is the prediction error?
+
+We take $\alpha$ = .9 to make more varible add into our model. The optimal $\lambda$ is about 70 after running a few runs of cv.glmnet.
+
+```{r}
+fit.fl.cv.2 <- cv.glmnet(X.fl, Y, alpha=0.9, nfolds=10)
+plot(fit.fl.cv.2)
+#fit.fl.cv$lambda.1se
+#fit.fl.cv$lambda.min
+```
+
+The remaining varibles in the elastic model are given below:
+
+```{r echo=FALSE}
+set.seed(20191009)
+fit.fl.final <- glmnet(X.fl, Y, alpha=.9, lambda=70)
+beta.final <- coef(fit.fl.final)
+beta.final <- beta.final[which(beta.final !=0),]
+beta.final <- as.matrix(beta.final)
+rownames(beta.final)
+```
+
+2. Use the elastic net variables in an OLS model. What is the equation, and what is the prediction error?
+
+The equation is:
+$$violentcrimes.perpop = Intercept+race.pctblack + male.pct.divorc + pct.kids2parents $$
+$$+pct.kids.nvrmarried+pct.house.vacant+num.in.shelters$$
+
+And then we take a look at the summary of the elastic net variables in an OLS model.
+```{r echo=FALSE}
+fit.final=lm(violentcrimes.perpop~race.pctblack +male.pct.divorce+pct.kids2parents 
++pct.kids2parents
++pct.kids.nvrmarried
++pct.house.vacant+num.in.shelters ,crime_na.omit)
+summary(fit.final)
+```
+We use RSE to estimate the prediction error which is 370
+
+3. Summarize your findings, with particular focus on the difference between the two equations.
+
+In this case, we can observe that the value of estimates from LASSO is smaller than lm estimates and the sign agrees. It proves that although LASSO could identify important varible, the estimates from LASSO is biased and tends to give a smaller value.
+```{r echo=FALSE}
+coef.min.final <- coef(fit.fl.final)
+coef.min.final <- coef.min.final[which(coef.min.final !=0)]
+lm.out.2 <- coef(fit.final) 
+
+comp_2 <- data.frame(coef.min.final, lm.out.2 )
+names(comp_2) <- c("estimates from relaxted LASSO", "lm estimates")
+comp_2
+```
+
+
+## Summary
+
+Write a brief summary: 1) Summarize the crime situation in general in United States. 2) Based on the analyse done, can you make some suggestions to local officials/policy holders how to reduce the crime rates. 3) How to improve the study.
+
+1)Overall, we can see that there are large differences in crime rates across states in the United States. The crime rate in the southern and coastal areas is relatively high. The difference in crime rates between adjacent areas is not significant. Los Angeles has the highest mean crime rate while North Dakota has the lowest mean crime rate.
+
+2)From the existing results, we found that some indicators related to adolescents have a strong correlation with crime rates. This suggests that the phenomenon of juvenile delinquency may have a growing trend. Therefore, we should strengthen the attention and guidance of adolescents' growth, pay attention to the mental health problems of adolescents, and correct some juvenile crimes in a timely manner to achieve the goal of reducing crime rates. In addition, marriage has a relatively large impact on the crime rate. In one method, children from single-parent families or unmarried families are more likely to commit crimes. At the same time, men who are divorced from their spouses are also prone to criminal thoughts. A happy family can not only be a guarantee of people's mental health, but also an important factor affecting social security. At the same time, we also found that the proportion of black people has a positive correlation with crime rate. And we believe that behind racial issues, we should be more concerned with the internal causes of positive correlation between the two. It may be that the blacks may be subject to employment discrimination that makes their average wages lower. And lower wages not only make them vulnerable to criminal motives, but also make them want to have more children to get some government subsidies. These children may not be well educated and will be a high-risk target for juvenile delinquency. If we can eliminate the discrimination faced by black people in employment, education, etc., and give them more attention, this may effectively reduce the crime rate. Finally, housing is also an indicator that we should pay attention to. In general, crime is more likely to occur in inaccessible places, and higher housing vacancy rates make some communities a paradise for criminals. At the same time, vacant homes are unable to collect property management fees and reduce the funds available for investment in community safety. We can observe a positive correlation between the number of houses and the crime rate. This may be due to the correlation between the number of houses and the vacancy rate of the house. Therefore, reducing vacant homes is also an effective way to reduce crime rates.
+
+3)As already mentioned in the last question, our existing results seem to show a tendency to racial discrimination. In fact, because we lack some variables, we can't explore the reasons why blacks are positively correlated with crime rates. If we can conduct an in-depth investigation and exploration of the life, work, and family situation of black people, we may find some variables to explain. 
+  In this study, we use cross-section data from 2 states. However, if we can generate more data from different time space, we can make a analysis based on time series data or penal data which could give us more information about crime rate. The current models can not predict crime rates and can only provide a way to explain crime rates. For crime rates, there may be strong autocorrelation, so time series data can provide us with a good predictor of crime rates.
+  Also, we find a lot of missing value in EDA meaning that we may delete some important varibles. If we can get more complete data, the final model may change. In addition, We did not consider the collinearity between the variables, which makes the coefficients may be biased.
+
+
